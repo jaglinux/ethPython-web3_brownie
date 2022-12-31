@@ -38,6 +38,17 @@ def get_saved_block():
     else:
         print(data)
 
+
+def get_transactions_hashes():
+    data = read_obj("block.data")
+    if data is None:
+        print("No history")
+    else:  
+        txns_hashes = data['transactions']
+        print("transaction hashes are ", txns_hashes)
+        print("Number of txn hashes are ", len(txns_hashes))
+        save_obj(txns_hashes, "txns.data")
+
 def save_obj(data, file_name):
     data = Web3.toJSON(data)
 
@@ -58,10 +69,23 @@ def read_obj(file_name):
     
     return data
 
+def print_txn():
+    txns_hashes = read_obj("txns.data")
+    print("Number of transactions ", len(txns_hashes))
+    check_if_connected()
+    for i, txn_hash in enumerate(txns_hashes):
+        txn = w3.eth.get_transaction_receipt(txn_hash)
+        print(f"Transaction {i} : {txn} ")
+        print("---------- Interacted with contract ", txn['to'])
+        print("-------------------------------------------------")
+    
+
 if __name__ == "__main__":
     print("Enter 0 to read latest block")
     print("Enter 1 to read latest block number")
     print("Enter 2 to read block from previous store")
+    print("Enter 3 to read transactions from saved block")
+    print("Enter 4 to parse transactions from saved block")
     print("Enter any other key to EXIT...")
     while True:
         in1 = int(input())
@@ -71,6 +95,11 @@ if __name__ == "__main__":
             get_latest_block_number()
         elif in1 == 2:
             get_saved_block()
+        elif in1 == 3:
+            get_transactions_hashes()
+        elif in1 == 4:
+            print_txn()
         else:
             break
         print("Awaiting next input...")
+
