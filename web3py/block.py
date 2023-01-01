@@ -10,23 +10,26 @@ def connect_to_web3():
     w3 = Web3(Web3.HTTPProvider(infura_http))
     print("Web3 is now conected ", w3.isConnected())
 
-def check_if_connected():
-    if w3 is None:
-        print("Web3 not connected... ")
-        connect_to_web3()
+def check_if_connected(func):
+    def wrapper():
+        if w3 is None:
+            print("Web3 not connected... ")
+            connect_to_web3()
+        func()
+    return wrapper
 
+@check_if_connected
 def create_new_account():
-    check_if_connected()
     new_acct = w3.eth.account.create()
     print(new_acct)
 
+@check_if_connected
 def get_latest_block():
-    check_if_connected()
     block = w3.eth.get_block('latest')
     save_obj(block, "block.data")
 
+@check_if_connected
 def get_latest_block_number():
-    check_if_connected()
     block = w3.eth.get_block('latest')
     save_obj(block, "block.data")
     print(block['number'])
@@ -69,10 +72,10 @@ def read_obj(file_name):
     
     return data
 
+@check_if_connected
 def print_txn():
     txns_hashes = read_obj("txns.data")
     print("Number of transactions ", len(txns_hashes))
-    check_if_connected()
     for i, txn_hash in enumerate(txns_hashes):
         txn = w3.eth.get_transaction_receipt(txn_hash)
         print(f"Transaction {i} : {txn} ")
@@ -102,4 +105,3 @@ if __name__ == "__main__":
         else:
             break
         print("Awaiting next input...")
-
