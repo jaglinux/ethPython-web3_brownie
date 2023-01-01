@@ -26,12 +26,12 @@ def create_new_account():
 @check_if_connected
 def get_latest_block():
     block = w3.eth.get_block('latest')
-    save_obj(block, "block.data")
+    save_obj(block, "block.data", 'w')
 
 @check_if_connected
 def get_latest_block_number():
     block = w3.eth.get_block('latest')
-    save_obj(block, "block.data")
+    save_obj(block, "block.data", 'w')
     print(block['number'])
 
 def get_saved_block():
@@ -50,13 +50,14 @@ def get_transactions_hashes():
         txns_hashes = data['transactions']
         print("transaction hashes are ", txns_hashes)
         print("Number of txn hashes are ", len(txns_hashes))
-        save_obj(txns_hashes, "txns.data")
+        save_obj(txns_hashes, "txns.data", "w")
 
-def save_obj(data, file_name):
+def save_obj(data, file_name, flag):
+    assert flag in ['w', 'a']
     data = Web3.toJSON(data)
 
     try:
-        with open(file_name, "w") as f:
+        with open(file_name, "a") as f:
             f.write(data)
     except Exception as ex:
         print("data save failed", ex)
@@ -73,15 +74,28 @@ def read_obj(file_name):
     return data
 
 @check_if_connected
-def print_txn():
+def parse_txn():
     txns_hashes = read_obj("txns.data")
-    print("Number of transactions ", len(txns_hashes))
+    print("Number of transactions ", txns_hashes)
+    txn_file = read_obj("txn.data")
+    print("---------", txn_file, len(txn_file))
+    return
+    if txn_file is None:
+        txn_file = {}
+    new_txn_file = {}
     for i, txn_hash in enumerate(txns_hashes):
-        txn = w3.eth.get_transaction_receipt(txn_hash)
-        print(f"Transaction {i} : {txn} ")
-        print("---------- Interacted with contract ", txn['to'])
-        print("-------------------------------------------------")
-    
+        #print("txn_hash ------ ", txn_file.get(txn_hash))
+        if txn_file.get(txn_hash) is None:
+            txn = w3.eth.get_transaction_receipt(txn_hash)
+            #print(f"Transaction {i} : {txn} ")
+            print("---------- Interacted with contract ", txn['to'])
+            print("-------------------------------------------------")
+            new_txn_file[txn_hash] = [txn['to']]
+    print("-----------", new_txn_file)
+    if new_txn_file:
+        txn_file.update(new_txn_file)
+        print("----------SAVING")
+        save_obj(txn_file, "txn.data", 'a')
 
 if __name__ == "__main__":
     print("Enter 0 to read latest block")
@@ -101,7 +115,7 @@ if __name__ == "__main__":
         elif in1 == 3:
             get_transactions_hashes()
         elif in1 == 4:
-            print_txn()
+            parse_txn()
         else:
             break
         print("Awaiting next input...")
