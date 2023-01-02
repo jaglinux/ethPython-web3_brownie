@@ -1,59 +1,110 @@
 from web3 import Web3
 import os
-GANACHE_URL = 'HTTP://127.0.0.1:7545'
-INFURIA_URL = 'https://mainnet.infura.io/v3/<private>'
+import json
 
-blockchain = os.environ['CHAIN']
-print('blockchain selected is ', blockchain)
-url = ''
-if blockchain == 'MAIN':
-    url = INFURIA_URL
-elif blockchain == 'LOCAL':
-    url = GANACHE_URL
-else:
-    raise Exception('no blockchain selected')
+w3 = None
 
-web3 = Web3(Web3.HTTPProvider(url))
-print('web3 is connected ', web3.isConnected(), ' for', blockchain)
-print('block number is ', web3.eth.blockNumber)
+def connect_to_web3():
+    infura_http = os.environ['INFURA']
+    global w3
+    w3 = Web3(Web3.HTTPProvider(infura_http))
+    print("Web3 is now conected ", w3.isConnected())
 
-def create_payment_txn(nonce, dest_addr, eth, gas, gasPrice):
-    return {'nonce':nonce, 'to': dest_addr, 'value':web3.toWei(eth, 'ether'), 'gas':gas, 'gasPrice':web3.toWei(gasPrice, 'gwei')}
+def check_if_connected(func):
+    def wrapper():
+        if w3 is None:
+            print("Web3 not connected... ")
+            connect_to_web3()
+        func()
+    return wrapper
 
-def sign_txn(txn, key):
-    return web3.eth.account.signTransaction(txn, key)
+def save_obj(data, file_name, flag):
+    assert flag in ['w', 'a']
+    data = Web3.toJSON(data)
+    data = json.loads(data)
+    try:
+        with open(file_name, flag) as f:
+            f.write(json.dumps(data, indent=4))
+    except Exception as ex:
+        print("data save failed", ex)
 
-def send_txn(signed_txn):
-    hash = web3.eth.sendRawTransaction(signed_txn.rawTransaction)
-    return web3.toHex(hash)
+def read_obj(file_name):
+    data = None
 
-def main_blockchain():
-    balance = web3.eth.getBalance('<private>')
-    balance = web3.fromWei(balance, 'ether')
-    print('my balance is ', balance)
+    try:
+        with open(file_name, "r") as f:
+            data = json.loads(f.read())
+    except Exception as ex:
+        print("data read failed", ex)
+    
+    return data
 
-    contract_abi = '[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"},{"name":"_data","type":"bytes"}],"name":"transferAndCall","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_subtractedValue","type":"uint256"}],"name":"decreaseApproval","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transfer","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_addedValue","type":"uint256"}],"name":"increaseApproval","outputs":[{"name":"success","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"remaining","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"},{"indexed":false,"name":"data","type":"bytes"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"owner","type":"address"},{"indexed":true,"name":"spender","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Approval","type":"event"}]'
-    contract_address = '0x514910771af9ca656af840dff83e8264ecf986ca'
+@check_if_connected
+def create_new_account():
+    new_acct = w3.eth.account.create()
+    print(new_acct)
 
-    contract_address = Web3.toChecksumAddress(contract_address)
-    contract = web3.eth.contract(address=contract_address, abi=contract_abi)
-    token_balance = contract.functions.totalSupply().call()
-    print('token symbol is ', contract.functions.symbol().call())
-    print('token balance is ', web3.fromWei(token_balance, 'ether'))
+@check_if_connected
+def get_latest_block():
+    block = w3.eth.get_block('latest')
+    #block = {block['number']:block}
+    save_obj(block, "block.json", 'w')
 
-def local_blockchain():
-    addr_1 = '0xdbcC23c3196101DA306386a4651628AfA00B8ab5'
-    addr_1_key = '512d28f35892058382095a417710549e962998e5e9f90ccbfde44135f32ed428'
-    addr_2 = '0x4013488bc377A5Dd631fa5cEC7Ca5C9cBf652C44'
+def get_saved_block():
+    data = read_obj("block.json")
+    if data is None:
+        print("No history")
+    else:
+        print(data, type(data), len(data))
 
-    nonce = web3.eth.getTransactionCount(addr_1)
-    print('nonce is ', nonce)
-    txn = create_payment_txn(nonce, addr_2, 0.5, 2000000, 50)
-    txn = sign_txn(txn, addr_1_key)
-    hash = send_txn(txn)
-    print(hash)
+def get_transactions_hashes():
+    data = read_obj("block.json")
+    print(data)
+    if data is None:
+        print("No history")
+    else:  
+        txns_hashes = data['transactions']
+        print("transaction hashes are ", txns_hashes)
+        print("Number of txn hashes are ", len(txns_hashes))
+        save_obj(txns_hashes, "txns.json", "w")
 
-if blockchain == 'MAIN':
-    main_blockchain()
-else:
-    local_blockchain()
+@check_if_connected
+def parse_txn():
+    txns_hashes = read_obj("txns.json")
+    print("Number of transactions ", txns_hashes)
+    txn_file = read_obj("txn.json")
+    if txn_file is None:
+        txn_file = {}
+    new_txn_file = {}
+    for i, txn_hash in enumerate(txns_hashes):
+        #print("txn_hash ------ ", txn_file.get(txn_hash))
+        txn = w3.eth.get_transaction_receipt(txn_hash)
+        #print(f"Transaction {i} : {txn} ")
+        print("---------- Interacted with contract ", txn['to'])
+        print("-------------------------------------------------")
+        new_txn_file[txn['to']] = True
+    print("-----------", new_txn_file)
+    if new_txn_file:
+        txn_file.update(new_txn_file)
+        print("----------SAVING")
+        save_obj(txn_file, "txn.json", 'w')
+
+if __name__ == "__main__":
+    print("Enter 0 to read latest block")
+    print("Enter 1 to read block from previous store")
+    print("Enter 2 to read transactions from saved block")
+    print("Enter 3 to parse transactions from saved block")
+    print("Enter any other key to EXIT...")
+    while True:
+        in1 = int(input())
+        if in1 == 0:
+            get_latest_block()
+        elif in1 == 1:
+            get_saved_block()
+        elif in1 == 2:
+            get_transactions_hashes()
+        elif in1 == 3:
+            parse_txn()
+        else:
+            break
+        print("Awaiting next input...")
